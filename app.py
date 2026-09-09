@@ -5,7 +5,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 from scipy.stats import beta as beta_dist
-
+from streamlit_gsheets import GSheetsConnection
 
 st.set_page_config(
     page_title="Dashboard Risiko Energi Primer",
@@ -32,6 +32,47 @@ except Exception as error:
     st.error(f"Data tidak dapat dibaca: {error}")
     st.stop()
 
+# =========================================================
+# MEMBACA DATA HOP DARI GOOGLE SHEETS
+# =========================================================
+GOOGLE_SHEET_URL = (
+    "https://docs.google.com/spreadsheets/d/"
+    "1K-tMzdJNhsRBMDyJPPc4rI-spO2EwbHdnzcavLsEFBM/edit"
+)
+
+try:
+    sheets_connection = st.connection(
+        "gsheets",
+        type=GSheetsConnection
+    )
+
+    hop_data = sheets_connection.read(
+        spreadsheet=GOOGLE_SHEET_URL,
+        worksheet="02_HOP_Harian",
+        ttl=60
+    )
+
+    hop_data["tanggal"] = pd.to_datetime(
+        hop_data["tanggal"],
+        errors="coerce"
+    )
+
+    hop_data["hop"] = pd.to_numeric(
+        hop_data["hop"],
+        errors="coerce"
+    )
+
+    hop_data = hop_data.dropna(
+        subset=["tanggal", "unit", "hop"]
+    )
+
+except Exception as error:
+    st.warning(
+        f"Data HOP Google Sheets belum dapat dibaca: {error}"
+    )
+    hop_data = pd.DataFrame(
+        columns=["tanggal", "unit", "hop"]
+    )
 
 required_columns = [
     "model_id",
