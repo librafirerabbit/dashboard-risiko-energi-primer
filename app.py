@@ -178,10 +178,21 @@ threshold = st.sidebar.number_input(
     key=f"threshold_{model_id}"
 )
 
+simulation_options = [1000, 5000, 10000, 25000, 50000]
+
+default_simulation = int(
+    selected_model.get("simulation_count", 10000)
+)
+
+if default_simulation not in simulation_options:
+    simulation_options.append(default_simulation)
+    simulation_options.sort()
+
 jumlah_simulasi = st.sidebar.selectbox(
     "Jumlah Simulasi Monte Carlo",
-    options=[1000, 5000, 10000, 25000, 50000],
-    index=2
+    options=simulation_options,
+    index=simulation_options.index(default_simulation),
+    key=f"simulation_count_{model_id}"
 )
 
 
@@ -412,7 +423,11 @@ st.plotly_chart(
 # =========================================================
 st.subheader("Simulasi Monte Carlo")
 
-random_generator = np.random.default_rng(2027)
+random_seed = int(
+    selected_model.get("random_seed", 2027)
+)
+
+random_generator = np.random.default_rng(random_seed)
 
 simulation = minimum + rentang * random_generator.beta(
     alpha,
