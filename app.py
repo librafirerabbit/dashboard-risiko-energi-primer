@@ -46,10 +46,9 @@ try:
         type=GSheetsConnection
     )
 
-  hop_data = sheets_connection.read(
-    worksheet=305648890,
-    ttl=60
-
+    hop_data = sheets_connection.read(
+        worksheet=305648890,
+        ttl=60
     )
 
     hop_data["tanggal"] = pd.to_datetime(
@@ -58,7 +57,7 @@ try:
     )
 
     hop_data["hop"] = pd.to_numeric(
-        hop_data["hop"],
+               hop_data["hop"],
         errors="coerce"
     )
 
@@ -70,6 +69,7 @@ except Exception as error:
     st.warning(
         f"Data HOP Google Sheets belum dapat dibaca: {error}"
     )
+
     hop_data = pd.DataFrame(
         columns=["tanggal", "unit", "hop"]
     )
