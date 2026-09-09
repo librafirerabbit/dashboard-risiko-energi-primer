@@ -1,0 +1,16 @@
+event_id,model_id,unit,commodity,risk_event,root_cause,probability_pct,impact_miliar,likelihood_score,impact_score,risk_score,risk_level,mitigation,owner,status
+RE-001,EP-001,Korporat,Batu Bara,Keterlambatan pasokan batu bara,Keterbatasan armada angkut laut,65,420,5,5,25,High,Diversifikasi pemasok dan armada,Divisi Energi Primer,Open
+RE-002,EP-001,Korporat,Batu Bara,Penurunan stok batu bara,Realisasi pasokan di bawah kebutuhan,55,350,4,5,20,High,Pengendalian HOP dan buffer stock,Divisi Energi Primer,Monitoring
+RE-003,EP-001,Korporat,Batu Bara,Kualitas batu bara tidak sesuai,Deviasi kalori dan kadar air,45,280,4,4,16,Medium,Coal blending dan quality control,Divisi Operasi,Monitoring
+RE-004,EP-002,Unit Dummy A,Batu Bara,Keterlambatan bongkar batu bara,Gangguan ship unloader dan conveyor,50,300,4,5,20,High,Preventive maintenance coal handling,Unit Dummy A,Open
+RE-005,EP-002,Unit Dummy A,Batu Bara,Stok batu bara di bawah HOP minimum,Pasokan tidak sesuai nomination,40,250,3,4,12,Medium,Penambahan safety stock,Unit Dummy A,Monitoring
+RE-006,EP-002,Unit Dummy A,Batu Bara,Penurunan performa pembangkit,Kualitas batu bara tidak sesuai desain,35,220,3,4,12,Medium,Optimasi blending batu bara,Unit Dummy A,Monitoring
+RE-007,EP-003,Unit Dummy B,Gas,Penurunan tekanan gas,Gangguan fasilitas pemasok,45,260,4,5,20,High,Koordinasi pressure recovery,Unit Dummy B,Open
+RE-008,EP-003,Unit Dummy B,Gas,Pembatasan volume gas,Keterbatasan pasokan hulu,40,230,3,4,12,Medium,Kontrak sumber gas alternatif,Unit Dummy B,Monitoring
+RE-009,EP-003,Unit Dummy B,Gas,Kualitas gas tidak sesuai,Perubahan komposisi dan heating value,25,150,2,3,6,Low,Pemantauan kualitas gas,Unit Dummy B,Closed
+RE-010,EP-004,Unit Dummy C,BBM,Keterlambatan pengiriman BBM,Keterbatasan transportasi darat,35,190,3,4,12,Medium,Penjadwalan pengiriman berlapis,Unit Dummy C,Monitoring
+RE-011,EP-004,Unit Dummy C,BBM,Stok BBM kritis,Konsumsi lebih tinggi dari rencana,30,170,3,3,9,Low,Penambahan buffer stock BBM,Unit Dummy C,Open
+RE-012,EP-004,Unit Dummy C,BBM,Harga BBM meningkat,Perubahan harga pasar energi,25,210,2,4,8,Low,Optimasi dispatch dan kontrak,Unit Dummy C,Monitoring
+RE-013,EP-005,Unit Dummy D,Biomassa,Keterlambatan pasokan biomassa,Kapasitas pemasok terbatas,40,140,3,3,9,Low,Diversifikasi pemasok biomassa,Unit Dummy D,Open
+RE-014,EP-005,Unit Dummy D,Biomassa,Kualitas biomassa tidak sesuai,Kadar air melebihi spesifikasi,35,120,3,3,9,Low,Inspeksi kualitas di pemasok,Unit Dummy D,Monitoring
+RE-015,EP-005,Unit Dummy D,Biomassa,Volume biomassa tidak mencukupi,Kompetisi kebutuhan bahan baku,30,160,3,3,9,Low,Kontrak pasokan jangka panjang,Unit Dummy D,Monitoring
