@@ -117,7 +117,51 @@ st.caption(
     "Pemodelan probabilistik Beta-PERT dan simulasi Monte Carlo "
     "berdasarkan data pada GitHub"
 )
+# =========================================================
+# PEMERIKSAAN DATA HOP
+# =========================================================
+st.subheader("Data Historis HOP")
 
+if hop_data.empty:
+    st.warning(
+        "Data HOP belum tersedia atau belum berhasil dibaca."
+    )
+else:
+    jumlah_unit_hop = hop_data["unit"].nunique()
+    tanggal_awal_hop = hop_data["tanggal"].min()
+    tanggal_akhir_hop = hop_data["tanggal"].max()
+
+    hop_col1, hop_col2, hop_col3 = st.columns(3)
+
+    hop_col1.metric(
+        "Jumlah Data",
+        f"{len(hop_data):,} baris"
+    )
+
+    hop_col2.metric(
+        "Jumlah Unit",
+        f"{jumlah_unit_hop:,} unit"
+    )
+
+    hop_col3.metric(
+        "Periode Data",
+        (
+            f"{tanggal_awal_hop:%d-%m-%Y} s.d. "
+            f"{tanggal_akhir_hop:%d-%m-%Y}"
+        )
+    )
+
+    with st.expander(
+        "Lihat data HOP dari Google Sheets",
+        expanded=True
+    ):
+        st.dataframe(
+            hop_data.sort_values(
+                ["unit", "tanggal"]
+            ),
+            use_container_width=True,
+            hide_index=True
+        )
 
 # =========================================================
 # FILTER DATA
