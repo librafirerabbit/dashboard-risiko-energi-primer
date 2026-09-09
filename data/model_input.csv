@@ -1,6 +1,6 @@
-model_id,risk_code,unit,commodity,period,forecast_name,minimum,most_likely,maximum,lambda,threshold,uom,active
-EP-001,R09,Korporat,Batu Bara,2027,Loss Opportunity Hambatan Energi Primer,264.82,345.51,446.39,4,389.20,Rp miliar,Ya
-EP-002,R09,Unit Dummy A,Batu Bara,2027,Loss Opportunity Pasokan Batu Bara,180.00,250.00,370.00,4,320.00,Rp miliar,Ya
-EP-003,R09,Unit Dummy B,Gas,2027,Loss Opportunity Pasokan Gas,120.00,190.00,310.00,4,260.00,Rp miliar,Ya
-EP-004,R09,Unit Dummy C,BBM,2027,Loss Opportunity Pasokan BBM,75.00,135.00,240.00,4,200.00,Rp miliar,Ya
-EP-005,R09,Unit Dummy D,Biomassa,2027,Loss Opportunity Pasokan Biomassa,50.00,95.00,180.00,4,150.00,Rp miliar,Ya
+model_id,risk_code,unit,commodity,period,forecast_name,minimum,most_likely,maximum,lambda,threshold,uom,simulation_count,random_seed,source_sheet,last_update,active
+EP-001,R09,Korporat,Batu Bara,2027,Loss Opportunity Hambatan Energi Primer,264.82,345.51,446.39,4,389.20,Rp miliar,10000,42,9. Forecast (k),2026-09-09,Ya
+EP-002,R09,Unit Dummy A,Batu Bara,2027,Loss Opportunity Pasokan Batu Bara,180.00,250.00,370.00,4,320.00,Rp miliar,10000,42,Data Dummy,2026-09-09,Ya
+EP-003,R09,Unit Dummy B,Gas,2027,Loss Opportunity Pasokan Gas,120.00,190.00,310.00,4,260.00,Rp miliar,10000,42,Data Dummy,2026-09-09,Ya
+EP-004,R09,Unit Dummy C,BBM,2027,Loss Opportunity Pasokan BBM,75.00,135.00,240.00,4,200.00,Rp miliar,10000,42,Data Dummy,2026-09-09,Ya
+EP-005,R09,Unit Dummy D,Biomassa,2027,Loss Opportunity Pasokan Biomassa,50.00,95.00,180.00,4,150.00,Rp miliar,10000,42,Data Dummy,2026-09-09,Ya
