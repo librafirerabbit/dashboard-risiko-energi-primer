@@ -162,7 +162,80 @@ else:
             use_container_width=True,
             hide_index=True
         )
+    # =====================================================
+    # GRAFIK TREN HOP PER UNIT
+    # =====================================================
+    st.subheader("Tren HOP Harian per Unit")
 
+    hop_unit_options = sorted(
+        hop_data["unit"].astype(str).unique()
+    )
+
+    selected_hop_unit = st.selectbox(
+        "Pilih Unit untuk Grafik HOP",
+        options=hop_unit_options,
+        key="selected_hop_unit"
+    )
+
+    unit_hop_data = hop_data[
+        hop_data["unit"].astype(str) == selected_hop_unit
+    ].sort_values("tanggal")
+
+    hop_chart = go.Figure()
+
+    hop_chart.add_trace(
+        go.Scatter(
+            x=unit_hop_data["tanggal"],
+            y=unit_hop_data["hop"],
+            mode="lines+markers",
+            name="HOP Aktual",
+            line=dict(
+                color="#1473E6",
+                width=3
+            ),
+            marker=dict(size=8),
+            hovertemplate=(
+                "Tanggal: %{x|%d-%m-%Y}"
+                "<br>HOP: %{y:.2f} hari"
+                "<extra></extra>"
+            )
+        )
+    )
+
+    hop_chart.add_hline(
+        y=7,
+        line_color="#16A34A",
+        line_dash="dash",
+        annotation_text="Batas Aman: 7 hari",
+        annotation_position="top left"
+    )
+
+    hop_chart.add_hline(
+        y=3,
+        line_color="#E53935",
+        line_dash="dash",
+        annotation_text="Batas Kritis: 3 hari",
+        annotation_position="bottom left"
+    )
+
+    hop_chart.update_layout(
+        title=f"Tren HOP — {selected_hop_unit}",
+        xaxis_title="Tanggal",
+        yaxis_title="Hari Operasi Pembangkit",
+        hovermode="x unified",
+        height=450,
+        margin=dict(
+            l=30,
+            r=30,
+            t=70,
+            b=30
+        )
+    )
+
+    st.plotly_chart(
+        hop_chart,
+        use_container_width=True
+    )
 # =========================================================
 # FILTER DATA
 # =========================================================
