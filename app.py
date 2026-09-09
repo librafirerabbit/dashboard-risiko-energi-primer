@@ -46,10 +46,10 @@ try:
         type=GSheetsConnection
     )
 
-    hop_data = sheets_connection.read(
-        spreadsheet=GOOGLE_SHEET_URL,
-        worksheet="02_HOP_Harian",
-        ttl=60
+  hop_data = sheets_connection.read(
+    worksheet=305648890,
+    ttl=60
+
     )
 
     hop_data["tanggal"] = pd.to_datetime(
