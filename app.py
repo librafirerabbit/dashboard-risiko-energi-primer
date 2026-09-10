@@ -12,6 +12,47 @@ st.set_page_config(
     page_title="Dashboard Risiko Energi Primer",
     page_icon="⚡",
     layout="wide",
+    initial_sidebar_state="collapsed",
+)
+
+
+# =========================================================
+# PENYESUAIAN TAMPILAN
+# =========================================================
+st.markdown(
+    """
+    <style>
+    /* Memberi ruang yang cukup pada konten utama. */
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 3rem;
+    }
+
+    /* Menjaga angka KPI tetap terbaca pada layar yang lebih sempit. */
+    [data-testid="stMetricValue"] {
+        font-size: clamp(1.45rem, 2.2vw, 2.35rem);
+        line-height: 1.15;
+    }
+
+    [data-testid="stMetricLabel"] {
+        min-height: 2.2rem;
+    }
+
+    /* Lebar sidebar ketika pengguna membukanya kembali. */
+    [data-testid="stSidebar"] {
+        min-width: 310px;
+        max-width: 340px;
+    }
+
+    @media (max-width: 900px) {
+        .block-container {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
 )
 
 
@@ -288,14 +329,31 @@ else:
             )
         )
         ranking_chart.update_layout(
-            title="Frekuensi HOP di Bawah Batas per Unit",
             xaxis_title="Frekuensi terhadap Jumlah Observasi (%)",
-            yaxis_title="Unit",
             barmode="group",
-            yaxis=dict(autorange="reversed"),
-            height=max(420, 65 * len(hop_summary)),
-            margin=dict(l=30, r=30, t=70, b=30),
-            legend=dict(orientation="h", yanchor="bottom", y=1.02),
+            yaxis=dict(
+                title="Unit",
+                autorange="reversed",
+                automargin=True,
+                tickfont=dict(size=11),
+            ),
+            xaxis=dict(
+                title="Frekuensi terhadap Jumlah Observasi (%)",
+                automargin=True,
+                rangemode="tozero",
+            ),
+            height=max(520, 46 * len(hop_summary)),
+            margin=dict(l=20, r=20, t=80, b=60),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="left",
+                x=0,
+                title_text="",
+            ),
+            bargap=0.22,
+            bargroupgap=0.08,
         )
         st.plotly_chart(ranking_chart, use_container_width=True)
 
