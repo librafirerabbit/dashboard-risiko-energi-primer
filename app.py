@@ -23,6 +23,28 @@ def format_number(value, decimals=2):
     return f"{value:,.{decimals}f}"
 
 
+def moving_block_bootstrap(values, horizon, simulations, block_length, seed):
+    """Simulasikan lintasan HOP sambil mempertahankan pola harian berurutan."""
+    values = np.asarray(values, dtype=float)
+    if values.size == 0:
+        return np.empty((0, horizon))
+
+    effective_block = min(block_length, values.size)
+    max_start = values.size - effective_block
+    blocks_needed = int(np.ceil(horizon / effective_block))
+    generator = np.random.default_rng(seed)
+    result = np.empty((simulations, horizon), dtype=float)
+
+    for simulation_index in range(simulations):
+        starts = generator.integers(0, max_start + 1, size=blocks_needed)
+        path = np.concatenate(
+            [values[start : start + effective_block] for start in starts]
+        )
+        result[simulation_index] = path[:horizon]
+
+    return result
+
+
 @st.cache_data
 def load_model_data():
     file_path = Path(__file__).parent / "data" / "model_input.csv"
@@ -429,6 +451,249 @@ else:
             margin=dict(l=30, r=30, t=70, b=30),
         )
         st.plotly_chart(hop_chart, use_container_width=True)
+
+        # =================================================
+        # PROBABILITAS DAN SIMULASI MONTE CARLO HOP
+        # =================================================
+        st.markdown("#### Probabilitas dan Simulasi HOP")
+        st.caption(
+            "Simulasi menggunakan moving-block bootstrap agar pola HOP "
+            "beberapa hari berturut-turut tetap terwakili."
+        )
+
+        simulation_col1, simulation_col2, simulation_col3 = st.columns(3)
+        horizon_hop = simulation_col1.selectbox(
+            "Horizon Simulasi",
+            options=[30, 90, 180, 365],
+            index=1,
+            format_func=lambda value: f"{value} hari",
+            key="horizon_simulasi_hop",
+        )
+        jumlah_simulasi_hop = simulation_col2.selectbox(
+            "Jumlah Skenario HOP",
+            options=[500, 1000, 5000, 10000],
+            index=1,
+            format_func=lambda value: f"{value:,} skenario",
+            key="jumlah_simulasi_hop",
+        )
+        panjang_blok = simulation_col3.selectbox(
+            "Panjang Blok Historis",
+            options=[3, 7, 14, 30],
+            index=1,
+            format_func=lambda value: f"{value} hari",
+            key="panjang_blok_hop",
+            help=(
+                "Blok 7 hari mempertahankan pola perubahan HOP mingguan "
+                "saat sampel historis diacak."
+            ),
+        )
+
+        historical_hop = unit_hop_data["hop"].to_numpy(dtype=float)
+        historical_p5, historical_p10, historical_p50 = np.percentile(
+            historical_hop, [5, 10, 50]
+        )
+        historical_below_safe = (historical_hop < batas_aman).mean() * 100
+        historical_critical = (historical_hop <= batas_kritis).mean() * 100
+
+        hop_paths = moving_block_bootstrap(
+            values=historical_hop,
+            horizon=horizon_hop,
+            simulations=jumlah_simulasi_hop,
+            block_length=panjang_blok,
+            seed=2027,
+        )
+
+        scenario_minimum = hop_paths.min(axis=1)
+        scenario_mean = hop_paths.mean(axis=1)
+        scenario_below_safe_days = (hop_paths < batas_aman).sum(axis=1)
+        scenario_critical_days = (hop_paths <= batas_kritis).sum(axis=1)
+
+        probability_any_below_safe = (
+            (scenario_below_safe_days > 0).mean() * 100
+        )
+        probability_any_critical = (
+            (scenario_critical_days > 0).mean() * 100
+        )
+        expected_below_safe_days = scenario_below_safe_days.mean()
+        expected_critical_days = scenario_critical_days.mean()
+
+        hist_kpi1, hist_kpi2, hist_kpi3, hist_kpi4, hist_kpi5 = st.columns(5)
+        hist_kpi1.metric("P5 Historis", f"{format_number(historical_p5)} hari")
+        hist_kpi2.metric("P10 Historis", f"{format_number(historical_p10)} hari")
+        hist_kpi3.metric("P50 Historis", f"{format_number(historical_p50)} hari")
+        hist_kpi4.metric(
+            "Historis di Bawah Aman",
+            f"{format_number(historical_below_safe)}%",
+        )
+        hist_kpi5.metric(
+            "Historis Kritis",
+            f"{format_number(historical_critical)}%",
+        )
+
+        mc_kpi1, mc_kpi2, mc_kpi3, mc_kpi4 = st.columns(4)
+        mc_kpi1.metric(
+            "Peluang Ada Hari di Bawah Aman",
+            f"{format_number(probability_any_below_safe)}%",
+            help=f"Sedikitnya satu hari dalam horizon {horizon_hop} hari.",
+        )
+        mc_kpi2.metric(
+            "Peluang Ada Hari Kritis",
+            f"{format_number(probability_any_critical)}%",
+            help=f"Sedikitnya satu hari dalam horizon {horizon_hop} hari.",
+        )
+        mc_kpi3.metric(
+            "Ekspektasi Hari di Bawah Aman",
+            f"{format_number(expected_below_safe_days)} hari",
+        )
+        mc_kpi4.metric(
+            "Ekspektasi Hari Kritis",
+            f"{format_number(expected_critical_days)} hari",
+        )
+
+        future_dates = pd.date_range(
+            start=unit_hop_data["tanggal"].max() + pd.Timedelta(days=1),
+            periods=horizon_hop,
+            freq="D",
+        )
+        path_p10 = np.percentile(hop_paths, 10, axis=0)
+        path_p50 = np.percentile(hop_paths, 50, axis=0)
+        path_p90 = np.percentile(hop_paths, 90, axis=0)
+
+        fan_chart = go.Figure()
+        fan_chart.add_trace(
+            go.Scatter(
+                x=future_dates,
+                y=path_p90,
+                mode="lines",
+                line=dict(width=0),
+                name="P90",
+                hovertemplate="P90: %{y:.2f} hari<extra></extra>",
+            )
+        )
+        fan_chart.add_trace(
+            go.Scatter(
+                x=future_dates,
+                y=path_p10,
+                mode="lines",
+                line=dict(width=0),
+                fill="tonexty",
+                fillcolor="rgba(20, 115, 230, 0.22)",
+                name="Rentang P10–P90",
+                hovertemplate="P10: %{y:.2f} hari<extra></extra>",
+            )
+        )
+        fan_chart.add_trace(
+            go.Scatter(
+                x=future_dates,
+                y=path_p50,
+                mode="lines",
+                line=dict(color="#1473E6", width=3),
+                name="P50",
+                hovertemplate="P50: %{y:.2f} hari<extra></extra>",
+            )
+        )
+        fan_chart.add_hline(
+            y=batas_aman,
+            line_color="#16A34A",
+            line_dash="dash",
+            annotation_text="Batas Aman",
+        )
+        fan_chart.add_hline(
+            y=batas_kritis,
+            line_color="#E53935",
+            line_dash="dash",
+            annotation_text="Batas Kritis",
+        )
+        fan_chart.update_layout(
+            title=f"Proyeksi Monte Carlo HOP {horizon_hop} Hari — {selected_hop_unit}",
+            xaxis_title="Tanggal Simulasi",
+            yaxis_title="HOP (hari)",
+            hovermode="x unified",
+            height=470,
+            margin=dict(l=30, r=30, t=70, b=30),
+        )
+        st.plotly_chart(fan_chart, use_container_width=True)
+
+        distribution_col1, distribution_col2 = st.columns(2)
+
+        minimum_histogram = go.Figure(
+            go.Histogram(
+                x=scenario_minimum,
+                nbinsx=45,
+                marker_color="#E53935",
+                opacity=0.82,
+                hovertemplate=(
+                    "Minimum HOP: %{x:.2f} hari"
+                    "<br>Frekuensi: %{y}"
+                    "<extra></extra>"
+                ),
+            )
+        )
+        minimum_histogram.add_vline(
+            x=batas_kritis,
+            line_color="#7F1D1D",
+            line_dash="dash",
+            annotation_text="Batas Kritis",
+        )
+        minimum_histogram.update_layout(
+            title="Distribusi Minimum HOP per Skenario",
+            xaxis_title="Minimum HOP (hari)",
+            yaxis_title="Frekuensi",
+            height=400,
+            showlegend=False,
+            margin=dict(l=30, r=30, t=70, b=30),
+        )
+        distribution_col1.plotly_chart(
+            minimum_histogram, use_container_width=True
+        )
+
+        average_histogram = go.Figure(
+            go.Histogram(
+                x=scenario_mean,
+                nbinsx=45,
+                marker_color="#4EC1C1",
+                opacity=0.82,
+                hovertemplate=(
+                    "Rata-rata HOP: %{x:.2f} hari"
+                    "<br>Frekuensi: %{y}"
+                    "<extra></extra>"
+                ),
+            )
+        )
+        average_histogram.add_vline(
+            x=batas_aman,
+            line_color="#166534",
+            line_dash="dash",
+            annotation_text="Batas Aman",
+        )
+        average_histogram.update_layout(
+            title="Distribusi Rata-rata HOP per Skenario",
+            xaxis_title="Rata-rata HOP (hari)",
+            yaxis_title="Frekuensi",
+            height=400,
+            showlegend=False,
+            margin=dict(l=30, r=30, t=70, b=30),
+        )
+        distribution_col2.plotly_chart(
+            average_histogram, use_container_width=True
+        )
+
+        with st.expander("Metode simulasi HOP"):
+            st.markdown(
+                f"""
+                - Sumber simulasi: **{len(historical_hop):,} observasi**
+                  milik **{selected_hop_unit}**.
+                - Horizon: **{horizon_hop} hari** dengan
+                  **{jumlah_simulasi_hop:,} skenario**.
+                - Panjang blok: **{panjang_blok} hari**. Potongan data historis
+                  yang berurutan dipilih secara acak dan disambungkan sampai
+                  memenuhi horizon simulasi.
+                - **Peluang ada hari kritis** adalah persentase skenario yang
+                  memiliki sedikitnya satu nilai HOP ≤ {batas_kritis:g} hari.
+                - Simulasi ini merepresentasikan pola historis. Model belum
+                  memasukkan rencana pasokan, konsumsi, cuaca, atau jadwal kapal.
+                """
+            )
 
         with st.expander("Lihat data HOP dari Google Sheets"):
             st.dataframe(
