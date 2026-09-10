@@ -19,9 +19,8 @@ st.set_page_config(
 # FUNGSI BANTU
 # =========================================================
 def format_number(value, decimals=2):
-    """Format angka Indonesia: titik ribuan dan koma desimal."""
-    formatted = f"{value:,.{decimals}f}"
-    return formatted.replace(",", "_").replace(".", ",").replace("_", ".")
+    """Format angka dengan koma ribuan dan titik desimal."""
+    return f"{value:,.{decimals}f}"
 
 
 @st.cache_data
@@ -169,6 +168,163 @@ else:
     if batas_kritis >= batas_aman:
         st.error("Batas kritis harus lebih kecil daripada batas aman.")
     else:
+        # =================================================
+        # RINGKASAN RISIKO HOP SELURUH UNIT
+        # =================================================
+        hop_with_status = hop_data.copy()
+        hop_with_status["status"] = np.select(
+            [
+                hop_with_status["hop"] <= batas_kritis,
+                hop_with_status["hop"] < batas_aman,
+            ],
+            ["Kritis", "Waspada"],
+            default="Aman",
+        )
+
+        latest_index = hop_with_status.groupby("unit")["tanggal"].idxmax()
+        latest_hop = (
+            hop_with_status.loc[latest_index, ["unit", "tanggal", "hop", "status"]]
+            .rename(
+                columns={
+                    "tanggal": "tanggal_terkini",
+                    "hop": "hop_terkini",
+                    "status": "status_terkini",
+                }
+            )
+            .set_index("unit")
+        )
+
+        hop_summary = hop_with_status.groupby("unit").agg(
+            jumlah_observasi=("hop", "size"),
+            hop_rata_rata=("hop", "mean"),
+            hop_minimum=("hop", "min"),
+            hari_di_bawah_aman=("hop", lambda values: int((values < batas_aman).sum())),
+            hari_kritis=("hop", lambda values: int((values <= batas_kritis).sum())),
+        )
+        hop_summary = hop_summary.join(latest_hop)
+        hop_summary["frekuensi_di_bawah_aman_pct"] = (
+            hop_summary["hari_di_bawah_aman"]
+            / hop_summary["jumlah_observasi"]
+            * 100
+        )
+        hop_summary["frekuensi_kritis_pct"] = (
+            hop_summary["hari_kritis"]
+            / hop_summary["jumlah_observasi"]
+            * 100
+        )
+        hop_summary = hop_summary.sort_values(
+            ["frekuensi_kritis_pct", "frekuensi_di_bawah_aman_pct"],
+            ascending=[False, False],
+        ).reset_index()
+        hop_summary.insert(0, "peringkat", range(1, len(hop_summary) + 1))
+
+        st.markdown("#### Peringkat Risiko HOP Seluruh Unit")
+
+        ranking_chart = go.Figure()
+        ranking_chart.add_trace(
+            go.Bar(
+                y=hop_summary["unit"],
+                x=hop_summary["frekuensi_di_bawah_aman_pct"],
+                name="Di Bawah Batas Aman",
+                orientation="h",
+                marker_color="#F59E0B",
+                customdata=np.stack(
+                    [
+                        hop_summary["hari_di_bawah_aman"],
+                        hop_summary["jumlah_observasi"],
+                    ],
+                    axis=-1,
+                ),
+                hovertemplate=(
+                    "Unit: %{y}"
+                    "<br>Frekuensi: %{x:.2f}%"
+                    "<br>Jumlah: %{customdata[0]} dari %{customdata[1]} hari"
+                    "<extra></extra>"
+                ),
+            )
+        )
+        ranking_chart.add_trace(
+            go.Bar(
+                y=hop_summary["unit"],
+                x=hop_summary["frekuensi_kritis_pct"],
+                name="Kritis",
+                orientation="h",
+                marker_color="#E53935",
+                customdata=np.stack(
+                    [
+                        hop_summary["hari_kritis"],
+                        hop_summary["jumlah_observasi"],
+                    ],
+                    axis=-1,
+                ),
+                hovertemplate=(
+                    "Unit: %{y}"
+                    "<br>Frekuensi: %{x:.2f}%"
+                    "<br>Jumlah: %{customdata[0]} dari %{customdata[1]} hari"
+                    "<extra></extra>"
+                ),
+            )
+        )
+        ranking_chart.update_layout(
+            title="Frekuensi HOP di Bawah Batas per Unit",
+            xaxis_title="Frekuensi terhadap Jumlah Observasi (%)",
+            yaxis_title="Unit",
+            barmode="group",
+            yaxis=dict(autorange="reversed"),
+            height=max(420, 65 * len(hop_summary)),
+            margin=dict(l=30, r=30, t=70, b=30),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02),
+        )
+        st.plotly_chart(ranking_chart, use_container_width=True)
+
+        ranking_display = hop_summary.rename(
+            columns={
+                "peringkat": "Peringkat",
+                "unit": "Unit",
+                "tanggal_terkini": "Tanggal Terkini",
+                "hop_terkini": "HOP Terkini",
+                "status_terkini": "Status Terkini",
+                "jumlah_observasi": "Jumlah Observasi",
+                "hop_rata_rata": "Rata-rata HOP",
+                "hop_minimum": "HOP Minimum",
+                "hari_di_bawah_aman": "Hari di Bawah Aman",
+                "hari_kritis": "Hari Kritis",
+                "frekuensi_di_bawah_aman_pct": "Frekuensi di Bawah Aman (%)",
+                "frekuensi_kritis_pct": "Frekuensi Kritis (%)",
+            }
+        )
+        ranking_display = ranking_display[
+            [
+                "Peringkat",
+                "Unit",
+                "Tanggal Terkini",
+                "HOP Terkini",
+                "Status Terkini",
+                "Rata-rata HOP",
+                "HOP Minimum",
+                "Hari di Bawah Aman",
+                "Hari Kritis",
+                "Frekuensi di Bawah Aman (%)",
+                "Frekuensi Kritis (%)",
+                "Jumlah Observasi",
+            ]
+        ]
+        st.dataframe(
+            ranking_display,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Tanggal Terkini": st.column_config.DateColumn(format="DD-MM-YYYY"),
+                "HOP Terkini": st.column_config.NumberColumn(format="%.2f hari"),
+                "Rata-rata HOP": st.column_config.NumberColumn(format="%.2f hari"),
+                "HOP Minimum": st.column_config.NumberColumn(format="%.2f hari"),
+                "Frekuensi di Bawah Aman (%)": st.column_config.NumberColumn(format="%.2f%%"),
+                "Frekuensi Kritis (%)": st.column_config.NumberColumn(format="%.2f%%"),
+            },
+        )
+
+        st.markdown("#### Detail Unit Terpilih")
+
         unit_hop_data = hop_data[
             hop_data["unit"].astype(str) == selected_hop_unit
         ].copy()
@@ -573,3 +729,4 @@ st.caption(
     "Sumber historis HOP: Google Sheets. Model Beta-PERT menggunakan "
     "minimum, most likely, maksimum, dan lambda."
 )
+
