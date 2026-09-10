@@ -678,6 +678,273 @@ else:
             average_histogram, use_container_width=True
         )
 
+        # =================================================
+        # VALIDASI / BACKTESTING MODEL HOP
+        # =================================================
+        st.markdown("#### Validasi / Backtesting Model HOP")
+        st.caption(
+            "Data dibagi berdasarkan waktu. Model hanya mempelajari periode "
+            "sebelum data uji, kemudian hasil simulasinya dibandingkan dengan "
+            "realisasi pada periode uji."
+        )
+
+        validation_options = [
+            days
+            for days in [30, 90, 180, 365]
+            if len(unit_hop_data) - days >= max(60, panjang_blok * 2)
+        ]
+
+        if not validation_options:
+            st.warning(
+                "Data unit belum cukup untuk backtesting. Diperlukan sedikitnya "
+                "90 observasi yang valid."
+            )
+        else:
+            default_validation_index = (
+                validation_options.index(90)
+                if 90 in validation_options
+                else 0
+            )
+            validation_days = st.selectbox(
+                "Periode Data Uji Backtesting",
+                options=validation_options,
+                index=default_validation_index,
+                format_func=lambda value: f"{value} observasi terakhir",
+                key="validation_days_hop",
+                help=(
+                    "Data sebelum periode uji menjadi data latih. Data uji "
+                    "tidak dipakai untuk membentuk simulasi."
+                ),
+            )
+
+            training_data = unit_hop_data.iloc[:-validation_days].copy()
+            testing_data = unit_hop_data.iloc[-validation_days:].copy()
+            training_values = training_data["hop"].to_numpy(dtype=float)
+            testing_values = testing_data["hop"].to_numpy(dtype=float)
+
+            backtest_paths = moving_block_bootstrap(
+                values=training_values,
+                horizon=validation_days,
+                simulations=jumlah_simulasi_hop,
+                block_length=panjang_blok,
+                seed=2028,
+            )
+
+            backtest_p10 = np.percentile(backtest_paths, 10, axis=0)
+            backtest_p50 = np.percentile(backtest_paths, 50, axis=0)
+            backtest_p90 = np.percentile(backtest_paths, 90, axis=0)
+
+            predicted_below_safe = (
+                (backtest_paths < batas_aman).mean() * 100
+            )
+            actual_below_safe = (
+                (testing_values < batas_aman).mean() * 100
+            )
+            predicted_critical = (
+                (backtest_paths <= batas_kritis).mean() * 100
+            )
+            actual_critical = (
+                (testing_values <= batas_kritis).mean() * 100
+            )
+            expected_below_safe_count = (
+                (backtest_paths < batas_aman).sum(axis=1).mean()
+            )
+            actual_below_safe_count = int(
+                (testing_values < batas_aman).sum()
+            )
+            expected_critical_count = (
+                (backtest_paths <= batas_kritis).sum(axis=1).mean()
+            )
+            actual_critical_count = int(
+                (testing_values <= batas_kritis).sum()
+            )
+            interval_coverage = (
+                (
+                    (testing_values >= backtest_p10)
+                    & (testing_values <= backtest_p90)
+                ).mean()
+                * 100
+            )
+            median_mae = np.mean(np.abs(testing_values - backtest_p50))
+            below_safe_gap = abs(
+                predicted_below_safe - actual_below_safe
+            )
+
+            if below_safe_gap <= 5 and interval_coverage >= 70:
+                validation_status = "BAIK"
+                validation_message = (
+                    "Frekuensi risiko hasil model cukup dekat dengan realisasi "
+                    "dan mayoritas nilai aktual berada dalam rentang P10–P90."
+                )
+                validation_alert = st.success
+            elif below_safe_gap <= 10 and interval_coverage >= 60:
+                validation_status = "CUKUP"
+                validation_message = (
+                    "Model sudah menangkap pola umum, tetapi kalibrasi masih "
+                    "perlu diperkuat dengan variabel pasokan dan konsumsi."
+                )
+                validation_alert = st.warning
+            else:
+                validation_status = "PERLU PENYEMPURNAAN"
+                validation_message = (
+                    "Perbedaan terhadap realisasi masih material. Hasil simulasi "
+                    "sebaiknya belum dipakai sebagai prediksi tunggal."
+                )
+                validation_alert = st.error
+
+            validation_period = (
+                f"{testing_data['tanggal'].min():%d-%m-%Y} s.d. "
+                f"{testing_data['tanggal'].max():%d-%m-%Y}"
+            )
+            st.info(
+                f"Data latih: {len(training_data):,} observasi sampai "
+                f"{training_data['tanggal'].max():%d-%m-%Y} | "
+                f"Data uji: {len(testing_data):,} observasi ({validation_period})"
+            )
+
+            validation_kpi1, validation_kpi2, validation_kpi3, validation_kpi4 = (
+                st.columns(4)
+            )
+            validation_kpi1.metric(
+                "Prediksi di Bawah Aman",
+                f"{format_number(predicted_below_safe)}%",
+                delta=(
+                    f"Aktual {format_number(actual_below_safe)}%"
+                ),
+                delta_color="off",
+            )
+            validation_kpi2.metric(
+                "Prediksi Kondisi Kritis",
+                f"{format_number(predicted_critical)}%",
+                delta=f"Aktual {format_number(actual_critical)}%",
+                delta_color="off",
+            )
+            validation_kpi3.metric(
+                "Coverage P10–P90",
+                f"{format_number(interval_coverage)}%",
+                help=(
+                    "Persentase realisasi HOP yang berada di dalam rentang "
+                    "simulasi P10 sampai P90. Rentang tersebut secara teoritis "
+                    "mencakup sekitar 80% hasil."
+                ),
+            )
+            validation_kpi4.metric(
+                "MAE terhadap P50",
+                f"{format_number(median_mae)} hari",
+                help="Rata-rata selisih absolut antara realisasi dan median model.",
+            )
+
+            count_col1, count_col2 = st.columns(2)
+            count_col1.metric(
+                "Ekspektasi Hari di Bawah Aman",
+                f"{format_number(expected_below_safe_count)} hari",
+                delta=f"Aktual {actual_below_safe_count:,} hari",
+                delta_color="off",
+            )
+            count_col2.metric(
+                "Ekspektasi Hari Kritis",
+                f"{format_number(expected_critical_count)} hari",
+                delta=f"Aktual {actual_critical_count:,} hari",
+                delta_color="off",
+            )
+
+            validation_alert(
+                f"Status validasi: {validation_status}. {validation_message}"
+            )
+
+            validation_chart = go.Figure()
+            validation_chart.add_trace(
+                go.Scatter(
+                    x=testing_data["tanggal"],
+                    y=backtest_p90,
+                    mode="lines",
+                    line=dict(width=0),
+                    name="P90 Model",
+                    hovertemplate="P90: %{y:.2f} hari<extra></extra>",
+                )
+            )
+            validation_chart.add_trace(
+                go.Scatter(
+                    x=testing_data["tanggal"],
+                    y=backtest_p10,
+                    mode="lines",
+                    line=dict(width=0),
+                    fill="tonexty",
+                    fillcolor="rgba(20, 115, 230, 0.22)",
+                    name="Rentang P10–P90",
+                    hovertemplate="P10: %{y:.2f} hari<extra></extra>",
+                )
+            )
+            validation_chart.add_trace(
+                go.Scatter(
+                    x=testing_data["tanggal"],
+                    y=backtest_p50,
+                    mode="lines",
+                    line=dict(color="#1473E6", width=2),
+                    name="P50 Model",
+                    hovertemplate="P50 model: %{y:.2f} hari<extra></extra>",
+                )
+            )
+            validation_chart.add_trace(
+                go.Scatter(
+                    x=testing_data["tanggal"],
+                    y=testing_values,
+                    mode="lines+markers",
+                    line=dict(color="#F8FAFC", width=2),
+                    marker=dict(size=5),
+                    name="Realisasi HOP",
+                    hovertemplate=(
+                        "Tanggal: %{x|%d-%m-%Y}"
+                        "<br>Realisasi: %{y:.2f} hari"
+                        "<extra></extra>"
+                    ),
+                )
+            )
+            validation_chart.add_hline(
+                y=batas_aman,
+                line_color="#16A34A",
+                line_dash="dash",
+                annotation_text="Batas Aman",
+            )
+            validation_chart.add_hline(
+                y=batas_kritis,
+                line_color="#E53935",
+                line_dash="dash",
+                annotation_text="Batas Kritis",
+            )
+            validation_chart.update_layout(
+                title=(
+                    f"Backtesting HOP {validation_days} Observasi — "
+                    f"{selected_hop_unit}"
+                ),
+                xaxis_title="Tanggal Data Uji",
+                yaxis_title="HOP (hari)",
+                hovermode="x unified",
+                height=480,
+                margin=dict(l=30, r=30, t=70, b=30),
+            )
+            st.plotly_chart(validation_chart, use_container_width=True)
+
+            with st.expander("Cara membaca hasil backtesting"):
+                st.markdown(
+                    f"""
+                    - Model dilatih memakai **{len(training_data):,} observasi**
+                      yang terjadi sebelum periode pengujian.
+                    - **Prediksi di bawah aman/kritis** dibandingkan dengan
+                      frekuensi aktual pada data uji.
+                    - **Coverage P10–P90 {format_number(interval_coverage)}%**
+                      menunjukkan proporsi realisasi yang berada di dalam pita
+                      ketidakpastian model. Acuan teoritis pita ini sekitar 80%.
+                    - **MAE {format_number(median_mae)} hari** menunjukkan
+                      rata-rata jarak realisasi dari P50 model; semakin kecil
+                      nilainya semakin dekat prediksi tengah terhadap aktual.
+                    - Backtesting ini menguji kalibrasi pola historis, bukan
+                      membuktikan hubungan sebab-akibat. Variabel pasokan,
+                      konsumsi, cuaca, dan jadwal kapal akan menjadi tahap
+                      pengembangan berikutnya.
+                    """
+                )
+
         with st.expander("Metode simulasi HOP"):
             st.markdown(
                 f"""
@@ -994,4 +1261,3 @@ st.caption(
     "Sumber historis HOP: Google Sheets. Model Beta-PERT menggunakan "
     "minimum, most likely, maksimum, dan lambda."
 )
-
